@@ -1,5 +1,5 @@
 using UnityEngine;
-using Unity.XR.CoreUtils;                     
+using Unity.XR.CoreUtils;
 using UnityEngine.XR.Interaction.Toolkit;
 
 public class LoudnessJump : MonoBehaviour
@@ -26,11 +26,13 @@ public class LoudnessJump : MonoBehaviour
         UpdateControllerHeight();
         ApplyGravity();
 
+        // Jump if loudness exceeds threshold and player is grounded
         if (MicLoudness.loudness > jumpThreshold && controller.isGrounded)
         {
             verticalVelocity = jumpSpeed;
         }
 
+        // Apply vertical movement
         Vector3 move = new Vector3(0, verticalVelocity, 0);
         controller.Move(move * Time.deltaTime);
     }
