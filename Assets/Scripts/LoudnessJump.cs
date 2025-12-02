@@ -1,7 +1,7 @@
 using UnityEngine;
 using Unity.XR.CoreUtils;
 using UnityEngine.XR.Interaction.Toolkit;
-
+using Oculus.Haptics;   // Required for Meta Haptics (.haptic files)
 public class LoudnessJump : MonoBehaviour
 {
     public float jumpThreshold = 0.25f;
@@ -11,6 +11,11 @@ public class LoudnessJump : MonoBehaviour
     private CharacterController controller;
     private XROrigin xrOrigin;
     private float verticalVelocity;
+
+    public HapticClip landHapticClip;
+    private HapticClipPlayer _clipPlayer;
+    public float hapticIntensity = 1f;
+    private bool wasGroundedLastFrame = true;
 
     void Start()
     {
@@ -35,6 +40,14 @@ public class LoudnessJump : MonoBehaviour
         // Apply vertical movement
         Vector3 move = new Vector3(0, verticalVelocity, 0);
         controller.Move(move * Time.deltaTime);
+
+        // Detect landing
+        if (!wasGroundedLastFrame && controller.isGrounded)
+        {
+            PlayLandingHaptics();
+        }
+
+        wasGroundedLastFrame = controller.isGrounded;
     }
 
     void UpdateControllerHeight()
@@ -51,5 +64,19 @@ public class LoudnessJump : MonoBehaviour
             verticalVelocity = -0.1f; // keep grounded
         else
             verticalVelocity += gravity * Time.deltaTime;
+    }
+    void PlayLandingHaptics()
+    {
+         if (landHapticClip == null) return;
+
+        if (_clipPlayer != null)
+        {
+            _clipPlayer.Dispose();
+            _clipPlayer = null;
+        }
+
+        _clipPlayer = new HapticClipPlayer(landHapticClip);
+        _clipPlayer.amplitude = Mathf.Clamp01(hapticIntensity);
+        _clipPlayer.Play(Controller.Both);
     }
 }

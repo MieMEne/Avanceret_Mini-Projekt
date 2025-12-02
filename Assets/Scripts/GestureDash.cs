@@ -1,16 +1,24 @@
 using UnityEngine;
 using UnityEngine.XR;
+using Oculus.Haptics;   // Required for Meta Haptics (.haptic files)
+
+//using Meta.Haptics;
 
 public class GestureDash : MonoBehaviour
 {
     public XRNode handNode = XRNode.RightHand;
-    public float gestureMultiplier = 2.5f;   // scales how strong a dash is
-    public float minVelocityForDash = 1.2f;  // threshold for detecting a deliberate swing
-    public float dashTime = 0.2f;            // how long dash lasts
+    public float dashDistance = 3f;
+    public float dashDuration = 0.15f;
+    public float minSpeedToDash = 0.3f;
 
-    CharacterController controller;
-    float dashRemaining = 0f;
-    Vector3 dashDirection = Vector3.zero;
+    private CharacterController controller;
+    private float dashTimer = 0f;
+    private Vector3 dashVelocity;
+
+    public HapticClip dashHapticClip;
+    private HapticClipPlayer _clipPlayer;
+    public float hapticIntensity = 1f;
+
 
     void Start()
     {
@@ -20,28 +28,63 @@ public class GestureDash : MonoBehaviour
     void Update()
     {
         InputDevice device = InputDevices.GetDeviceAtXRNode(handNode);
-        if (device.isValid)
-        {
-            if (device.TryGetFeatureValue(CommonUsages.deviceVelocity, out Vector3 velocity))
-            {
-                // forward component of velocity in headset-space:
-                Vector3 forwardVel = transform.InverseTransformDirection(velocity);
-                float forwardMag = forwardVel.z; // positive = forward swing
 
-                if (forwardMag > minVelocityForDash && dashRemaining <= 0f)
-                {
-                    dashDirection = transform.forward; // dash relative to player facing
-                    dashRemaining = dashTime;
-                    Debug.Log($"Dash triggered: v={forwardMag}");
-                }
+        if (device.TryGetFeatureValue(CommonUsages.deviceVelocity, out Vector3 velocity))
+        {
+            // Debug to verify Quest is sending velocity
+            Debug.Log("Velocity: " + velocity);
+
+            if (velocity.magnitude > minSpeedToDash && dashTimer <= 0f)
+            {
+                Vector3 forward = Camera.main.transform.forward;
+                forward.y = 0;
+                forward.Normalize();
+
+                dashVelocity = forward * (dashDistance / dashDuration);
+                dashTimer = dashDuration;
+                PlayDashHaptics();
+
+                Debug.Log("Dash triggered!");
             }
         }
 
-        if (dashRemaining > 0f)
+        if (dashTimer > 0)
         {
-            float t = Mathf.Min(Time.deltaTime, dashRemaining);
-            controller.Move(dashDirection * gestureMultiplier * t);
-            dashRemaining -= t;
+            controller.Move(dashVelocity * Time.deltaTime);
+            dashTimer -= Time.deltaTime;
+
+            // When the dash ends
+            if (dashTimer <= 0f)
+            {
+                StopDashHaptics();
+            }
         }
     }
+    void PlayDashHaptics()
+    {
+         if (dashHapticClip == null) return;
+
+        if (_clipPlayer != null)
+        {
+            _clipPlayer.Dispose();
+            _clipPlayer = null;
+        }
+
+        _clipPlayer = new HapticClipPlayer(dashHapticClip);
+        _clipPlayer.amplitude = Mathf.Clamp01(hapticIntensity);
+        _clipPlayer.Play(Controller.Both);
+    }
+    void StopDashHaptics()
+    {
+        if (_clipPlayer != null)
+        {
+            _clipPlayer.Stop();
+            _clipPlayer.Dispose();
+            _clipPlayer = null;
+        }
+    }
+
+    
 }
+
+
